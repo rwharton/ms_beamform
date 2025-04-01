@@ -5,15 +5,13 @@ import time, sys, glob, os
 from functools import partial
 from contextlib import closing
 import gc
-from astropy.coordinates import SkyCoord
-import astropy.units as u
 
 ms = casatools.ms()
 msmd = casatools.msmetadata()
 qa = casatools.quanta()
 me = casatools.measures()
 
-def avg_vis_at_newdir(ell_em, dat, ulams, vlams):
+def avg_vis_at_newdir(ell_em, dat, ulams, vlams, weights):
     """
     Calculate the average visibilities after shifting to a new
     direction given by ell, m
@@ -24,15 +22,16 @@ def avg_vis_at_newdir(ell_em, dat, ulams, vlams):
     phase_term = np.exp(-2.0j * np.pi * (ulams * ell + vlams * m) )
     dt_phase = time.time() - dt_phase0
 
+    # weight stuff
+    ws = weights.shape
+    w = np.reshape( weights, (ws[0], 1, ws[1], ws[2]))
     dt_mdat0 = time.time()
-    # RSW
-    #mdat = np.sum( (dat.T * phase_term.T).T, axis=2)
-    mdat = np.sum( (dat * phase_term), axis=2)
+    mdat = np.sum( (dat * phase_term * w), axis=2) / np.sum(w, axis=2)
     dt_mdat = time.time() - dt_mdat0
     
-    #print(dat.shape)
-    #print(phase_term.shape)
-    #print(mdat.shape)
+    print(dat.shape)
+    print(phase_term.shape)
+    print(mdat.shape)
             
     #dt = time.time() - dt_start
     #print("SINGLE VIS = %.2f sec" %dt)
@@ -41,24 +40,25 @@ def avg_vis_at_newdir(ell_em, dat, ulams, vlams):
 
 
 def calc_beam(pnum):
-    global ell_ems, dat, ulams, vlams
+    global ell_ems, dat, ulams, vlams, weights
     partial_avg_vis = partial(avg_vis_at_newdir, dat=dat, 
-                              ulams=ulams, vlams=vlams)
+                              ulams=ulams, vlams=vlams, weights=weights)
     one_beam = partial_avg_vis(ell_ems[pnum])
     return (pnum, one_beam)
 
 
-def initialize_calc_beam(_ell_ems, _dat, _ulams, _vlams):
-    global ell_ems, dat, ulams, vlams
+def initialize_calc_beam(_ell_ems, _dat, _ulams, _vlams, _weights):
+    global ell_ems, dat, ulams, vlams, weights
     ell_ems = _ell_ems
     dat     = _dat
     ulams   = _ulams
     vlams   = _vlams
+    weights = _weights
 
 
-def calc_all_beams(ell_ems, dat, ulams, vlams, nproc=4):
+def calc_all_beams(ell_ems, dat, ulams, vlams, weights, nproc=4):
     with closing(multiprocessing.Pool(processes=nproc, initializer = initialize_calc_beam, 
-                                      initargs = (ell_ems, dat, ulams, vlams))) as pool:
+                                      initargs = (ell_ems, dat, ulams, vlams, weights))) as pool:
         results = [pool.apply_async(calc_beam, args=(ii,)) for ii in range(len(ell_ems))]
         print(len(results))
         all_beams = [p.get() for p in results]
@@ -178,9 +178,7 @@ def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=
 
     # Default columns : array_id, field_id, data_desc_id, time
     ms.selectinit(datadescid=0, reset=True)
-    #uvlim = [830.0, 1e10] 
-    uvlim = [1.0, 830.0]
-    selection = {'field_id' : [target_id, phase_id], 'uvdist' : uvlim}
+    selection = {'field_id' : [target_id, phase_id], 'uvdist' : [1., 1e10]}
     ms.select(items = selection)
     ms.selectpolarization( pols )
 
@@ -229,7 +227,7 @@ def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=
             pass
 
         read_time_start = time.time()
-        rec = ms.getdata([data_col, "flag", "time", "u", "v", "field_id", "data_desc_id"], ifraxis=True)
+        rec = ms.getdata([data_col, "flag", "time", "u", "v", "weight", "field_id", "data_desc_id"], ifraxis=True)
         read_times.append(time.time() - read_time_start)
         
         print(rec["u"].shape)
@@ -242,6 +240,10 @@ def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=
 
         # Read in the array of field_ids
         field_ids = np.reshape(rec['field_id'], (-1, Nspw))[:, 0]
+
+	# Read in the weights
+	# shape = (Npol, Nbl, Nt)
+        weights = rec["weight"]
 
         # Calculate ulam and vlam
         # Need to do this b/c default unit is meters
@@ -309,7 +311,7 @@ def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=
             #mdats_beams = [ np.zeros( (Nt, Nchan), dtype=dd.dtype ) ] * Nbeams
             mdats_beams = [ np.zeros( (Nt, Nchan), dtype=np.float32 ) ] * Nbeams
         else:
-            mdats = calc_all_beams(ell_ems, dd, ulams, vlams, nproc=nproc)
+            mdats = calc_all_beams(ell_ems, dd, ulams, vlams, weights, nproc=nproc)
             mdats.sort()
             #mdats_beams = [mm[1].T for mm in mdats]
             mdats_beams = [np.real(mm[1].T).astype(np.float32) for mm in mdats]
@@ -380,44 +382,6 @@ def data_cross_check(t0, freqs0, dat0, t1, freqs1, dat1):
         return 0
     else:
         return 1
-
-
-def dir_to_coord(dd):
-    """
-    Convert a casa "direction" to a position like 
-
-    ["J2000", "03:58:53.716501", "+54.13.13.72701"]
-    """
-    ra_rad  = dd['m0']['value']
-    dec_rad = dd['m1']['value']
-
-    cc = SkyCoord(ra_rad, dec_rad, unit=(u.rad, u.rad), frame='fk5')
-    
-    ra_str, dec_str = cc.fk5.to_string('hmsdms').split()
-    """
-    ra_str = ra_str.replace('h', ':')
-    ra_str = ra_str.replace('m', ':')
-    ra_str = ra_str.replace('s', '')
-
-    dec_str = dec_str.replace('d', '.')
-    dec_str = dec_str.replace('m', '.')
-    dec_str = dec_str.replace('s', '')
-    """
-    bcenter = ["J2000", ra_str, dec_str]
-
-    return bcenter
-
-
-def get_field_phasecenter(msfile, fieldid=0):
-    """
-    Open ms, get phase center of field fieldid 
-    and write out as coord string
-    """
-    ms.open(msfile)
-    dd = ms.getfielddirmeas(fieldid=fieldid)
-    bcenter = dir_to_coord(dd)
-    ms.close()
-    return bcenter
 
 
 def get_ell_m(pos1, pos0):

@@ -176,7 +176,7 @@ def beam2fits_multi(nproc, group_bnums, step_nums, Nskip, full_freqs, yy,
 
 def get_beam_groups(bnum_list, n):
     Nb = len(bnum_list)
-    beam_groups = [ bnum_list[ii : ii + n] for ii in xrange(0, Nb, n) ]
+    beam_groups = [ bnum_list[ii : ii + n] for ii in range(0, Nb, n) ]
     return beam_groups
 
 
@@ -305,7 +305,7 @@ def get_all_times(basename):
 def get_freq_mapping(freqs):
     dfreqs = np.diff(freqs)
     df = np.min( np.abs(dfreqs)[ np.abs(dfreqs) > 0 ] )
-    print df
+    print(df)
     f_lo = np.min(freqs)
     f_hi = np.max(freqs)
     full_freqs = np.arange(f_lo, f_hi + df, df)
