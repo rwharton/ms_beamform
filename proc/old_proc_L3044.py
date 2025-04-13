@@ -20,7 +20,8 @@ if __name__ == "__main__":
 
     do_avg_vis = 1
     do_get_tf  = 1
-    do_get_mjd = 0
+    do_get_mjd = 1
+    do_fits    = 0
 
     datdir = '/data/L_3044/selfcal_data'
     inbase = 'MSGPS_L_3044'
@@ -34,8 +35,9 @@ if __name__ == "__main__":
 
     beam_locs = beam_list[:]
     beam_nums = beam_nums[:]
-
+    
     spw_list = range(16)
+
 
     proc_kwargs = {'tstep' : 9999.0,
                    'nproc' : 10,
@@ -45,18 +47,19 @@ if __name__ == "__main__":
                    'target_id' : 0, 'phase_id' : 3, 'flux_id' : 1,
                    'Nbl_min' : 0,
                    'Nskip' : 0,
-                   'use_flags' : True, 
-                   'use_weights' : True, 
-                   'uv_lam_taper' : 2.8e3, 
-                   'uvlim' : [1.0, 1e10]}
-
+                   'use_flags' : True}
+    
     # open first spw to phase center
+    #pos0 = ["J2000", "13:46:39.26", "-63.03.37.9"]
     msfile = "%s/%s_spw%03d.ms" %(datdir, inbase, 0)
     pos0 = be.get_field_phasecenter(msfile, proc_kwargs['target_id'])
     ell_ems = np.vstack( [be.get_ell_m(pp, pos0) for pp in beam_locs] )
 
+    #print(ell_ems[:10])
+
+    print(pos0)
+
     if do_avg_vis:
-        full_freqs = []
         for spw_ii in spw_list:
             tstart = time.time()
             proc_kwargs['basename'] = "spw%02d" %spw_ii
@@ -64,15 +67,6 @@ if __name__ == "__main__":
             mdats, tt, freqs, proc_times = be.average_visibilities(inms, ell_ems, beam_nums,
                                                                    spws=[0], logfile=logfile,
                                                                    **proc_kwargs)
-            full_freqs.append( freqs )
-
-        # Write freqs
-        full_freqs = np.hstack( full_freqs )
-        np.save(f"{basename}_freqs.npy", full_freqs)
-            
-        # Combine spw
-        be.multibeam_combine('.', len(beam_list))
-
         dt = time.time() - tstart
         print("TOTAL TIME = %.2f min" %(dt / 60.0))
 
@@ -86,4 +80,30 @@ if __name__ == "__main__":
         tdict = be.get_time_info(tt[0])
         np.save("%s_mjd_start.npy" %(basename), [tdict['mjd']])
         
+    
+    if do_fits:
+        tt, freqs = bc.get_freqs_and_times(basename)
+        tmjd = np.load("%s_mjd_start.npy" %basename)
+        mjd_start = tmjd[0]
+    
+        nchan = 512
+        chan_weights = np.ones(512)
+        #chan_weights[128:-128] = 0
+
+        # SKIP SEC
+        
+        obs_params = {"mjd_start": mjd_start,
+                      "dt"       : 0.010,
+                      "freq_lo"  : 1977.0,
+                      "chan_df"  : 4.0,
+                      "beam_info": np.array([3.0, 3.0, 0.0]),
+                      'chan_weights': chan_weights,
+                      'tgrow_zeros' : 3,
+                      'skip_start_zeros' : True}
+
+        bc.combine_beams_to_psrfits(basename, src_base, beam_nums, beam_list,
+                                    out_type=np.float32, keep_npy=False,
+                                    obs_params=obs_params, skip_sec=skip_sec)
+
+
     print("STOP")

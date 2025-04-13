@@ -56,7 +56,7 @@ def get_tiles(pos0, Nr, theta, align='x'):
         
     ras_out = []
     decs_out = []
-    for ii in xrange(len(ras)):
+    for ii in range(len(ras)):
         ras_out.extend(ras[ii])
         decs_out.extend(decs[ii])
 
@@ -129,7 +129,7 @@ def make_plot_layers(xxlist, yylist, theta):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     clist = ['b', 'r', 'LimeGreen', 'Orange', 'Purple']
-    for ii in xrange(len(xxlist)):
+    for ii in range(len(xxlist)):
         xx = xxlist[ii]
         yy = yylist[ii]
         coords = zip(xx, yy)
@@ -189,7 +189,7 @@ def make_beam_list(coords):
         dec_str = cc.dec.to_string(u.deg, sep='.', pad=True, 
                                    alwayssign=True)
         blist.append( ["J2000", ra_str, dec_str] )
-    blist = np.array(blist, dtype='string')
+    blist = np.array(blist, dtype=str)
     return blist
 
 
@@ -210,7 +210,7 @@ def blist_to_cc(blist):
     gsra  = np.array([ convert_ra(srai) for srai in sra ])
     gsdec = np.array([ convert_dec(sdeci) for sdeci in sdec ])
 
-    #coords = np.array([ gsra[ii] + ' ' + gsdec[ii] for ii in xrange(len(gsra)) ])
+    #coords = np.array([ gsra[ii] + ' ' + gsdec[ii] for ii in range(len(gsra)) ])
 
     cc = SkyCoord(ra=gsra, dec=gsdec)
 
@@ -233,7 +233,7 @@ def gc_hex_tile(pos0, hexlist, hdrfile):
     
     blist = []
     for ii, pp_ii in enumerate(cc_t):
-        print ii
+        print(ii)
         ras, decs, cc = get_tiles(pp_ii, Nr, theta)
         cc = filter_beams(cc, pp_ii, rmax=10**5)
         
@@ -258,36 +258,14 @@ def gc_hex_tile(pos0, hexlist, hdrfile):
 
 #hexlist = ["#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3"]
 hexlist = ["#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3"]
-hdrfile = "/Users/rsw/work/fastvis/16A-329/tiling/header.txt"
+hdrfile = "/Users/wharton/src/ms_beamform/tiling/header.txt"
+#pos0 = SkyCoord("12h24m22.03080s -64d07m53.2091s")  #bright source
+#pos0 = SkyCoord("12h21m50.736s -64d07m42.416")      # pulsar 
+pos0 = SkyCoord("12h23m54.487s -64d17m29.36")      # transient
 
-#frb0 = SkyCoord(ra=82.99242*u.degree, dec=33.135145*u.degree)
-pos0 = SkyCoord(ra=266.4167916676*u.degree, dec=-29.00780555425*u.degree)
-#cb_p0 = SkyCoord("17h45m45.529s -28d58m28.73s")
-#
-#psr_str = [ "17h46m03.355s -28d50m13.56s", 
-#            "17h45m40.160s -29d00m29.82s",
-#            "17h46m49.856s -28d56m59.23s",
-#            "17h45m47.830s -29d12m30.77s",
-#            "17h46m06.600s -28d50m42.00s",
-#            "17h45m17.788s -29d06m53.00s"]
-#
-#
-#psr_pos = [ SkyCoord(psr) for psr in psr_str ]
-#
-## For Pulsars
-#cc = multi_loc_beams(psr_pos, 3.0, rmax=10.0)
-#blist = make_beam_list(cc)
-#np.save("psr_beams_new.npy", blist)
-#write_reg_file("psr_beams_new.reg", cc, 3.0/2.0, hdrfile=hdrfile, add_nums=True)
 
-# For Cannonball
-#cc = get_and_filter_beams(cb_p0, 3.0, rmax=7.0)
-#blist = make_beam_list(cc)
+cc = get_and_filter_beams(pos0, 2.0, rmax=2.0)
+blist = make_beam_list(cc)
+#np.save(blist, 
+print(blist)
 
-# For GC Search (orig)
-#cc = get_and_filter_beams(pos0, 3.0, rmax=90.0)
-#blist = make_beam_list(cc)
-
-# For GC Search
-#cc = get_and_filter_beams(pos0, 3.0, rmax=7.5 * 60)
-#blist = make_beam_list(cc)

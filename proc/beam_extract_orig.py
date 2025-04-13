@@ -27,7 +27,7 @@ def avg_vis_at_newdir(ell_em, dat, ulams, vlams):
     dt_mdat0 = time.time()
     # RSW
     #mdat = np.sum( (dat.T * phase_term.T).T, axis=2)
-    mdat = np.sum( (dat * phase_term ), axis=2)
+    mdat = np.sum( (dat * phase_term), axis=2)
     dt_mdat = time.time() - dt_mdat0
     
     #print(dat.shape)
@@ -139,7 +139,7 @@ def divide_by_baselines(dd, flags_int, Nbl_min):
 def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=4, 
                          write_tstep=0, basename="", target_id=2, phase_id=1, flux_id=0, 
                          Nbl_min=0, datacolumn='corrected', Nskip=0, use_flags=True, 
-                         use_weights=True, uv_lam_taper=0, uvlim=[1.0, 1e10], logfile=None):
+                         uvlim=[1.0, 1e10], logfile=None):
     # Get channel frequencies using the ms metadata tool
     msmd.open(infile)
     freqs = np.array([])
@@ -228,8 +228,7 @@ def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=
             pass
 
         read_time_start = time.time()
-        dcols = [data_col, "flag", "time", "u", "v", "weight", "field_id", "data_desc_id"]
-        rec = ms.getdata(dcols, ifraxis=True)
+        rec = ms.getdata([data_col, "flag", "time", "u", "v", "field_id", "data_desc_id"], ifraxis=True)
         read_times.append(time.time() - read_time_start)
         
         print(rec["u"].shape)
@@ -254,37 +253,19 @@ def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=
         for kk, spw in enumerate(spws):
             # Get indices of current spw
             xx = np.where(rec['data_desc_id'] == spw)[0]
-    
-            # Get flags
-            flags = rec['flag'][:, :, :, xx]
-
-            # Set up array that will handle the flags, weights, and taper
-            ww = np.ones( flags.shape )
 
             # Convert flags from boolean values (True = FLAG, False = No Flag)
-            # to integers (0 = Flag, 1 = No Flag) and apply to ww array, or pass
+            # to integers (0 = Flag, 1 = No Flag) and apply to data
+            flags = rec['flag'][:, :, :, xx]
             if use_flags:
-                ww *= (((flags * 1.0) + 1.0) % 2.0)
+                flags_int = ((flags * 1) + 1) % 2
+            else: 
+                flags_int = np.ones( flags.shape )
 
-            # If we want to use the visibility weights, apply them now
-            # weights are not done per channel, so have one less axis
-            # (Npol, Nbl, Nt)
-            if use_weights:
-                wts = rec['weight'][:, :, xx]
-                ww *= np.reshape(wts, (wts.shape[0], 1, wts.shape[1], wts.shape[2]))
-
-            if uv_lam_taper > 0:
-                uv_dist_lams = np.sqrt( ulams**2 + vlams**2 )
-                ww_taper = 1 - np.exp( -1 * uv_dist_lams**2 / (2 * uv_lam_taper**2) )
-                ww *= ww_taper
-
-            # Multiply by weights
-            ddk = rec[data_col][:, :, :, xx] * ww
+            ddk = rec[data_col][:, :, :, xx] * flags_int
             
-            # Divide data by sum of data weights
-            # This was originally unflagged baselines but that's 
-            # just weights of 1 or 0
-            ddk = divide_by_baselines(ddk, ww, Nbl_min)
+            # Divide data by number of unflagged baselines per channel
+            ddk = divide_by_baselines(ddk, flags_int, Nbl_min)
 
             # Extend data along frequency channel axis
             if kk == 0:
