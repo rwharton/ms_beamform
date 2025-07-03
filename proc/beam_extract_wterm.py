@@ -21,8 +21,8 @@ def avg_vis_at_newdir(ell_em, dat, ulams, vlams, wlams):
     ell, m = ell_em
     n = np.sqrt(1 - ell**2 - m**2)
     dt_phase0 = time.time()
-    phase_term = np.exp(-2.0j * np.pi * (ulams * ell + vlams * m + wlams * (n-1)) )
-    #phase_term = np.exp(-2.0j * np.pi * (ulams * ell + vlams * m) )
+    #phase_term = np.exp(-2.0j * np.pi * (ulams * ell + vlams * m + wlams * (n-1)) )
+    phase_term = np.exp(-2.0j * np.pi * (ulams * ell + vlams * m) )
     dt_phase = time.time() - dt_phase0
 
     dt_mdat0 = time.time()
@@ -537,9 +537,9 @@ def log_output(text, logfile):
     return
 
 
-def combine_spw(indir, bnum, nspw):
+def combine_spw(indir, bnum):
     dd_list = []
-    for ii in range(nspw):
+    for ii in range(16):
         infile = "%s/spw%02d_beam%05d_step000.npy" %(indir, ii, bnum)
         dd_ii = np.load(infile)
         dd_list.append(dd_ii)
@@ -557,13 +557,13 @@ def combine_spw(indir, bnum, nspw):
     return
 
 
-def multibeam_combine(topdir, Nbeams, nspw):
+def multibeam_combine(topdir, Nbeams):
     """
     assume b00000 etc
     """
     for bnum in range(Nbeams):
         indir = f"{topdir}/beam{bnum:05d}"
-        combine_spw(indir, bnum, nspw)
+        combine_spw(indir, bnum)
 
     return
 

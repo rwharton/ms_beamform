@@ -6,7 +6,7 @@ from contextlib import closing
 import gc
 import casatools
 
-import beam_extract as be
+import beam_extract_wterm as be
 import beam_combine as bc
 
 ms = casatools.ms()
@@ -22,13 +22,13 @@ if __name__ == "__main__":
     do_get_tf  = 1
     do_get_mjd = 0
 
-    datdir = '/data/S_0748/selfcal_data'
-    inbase = 'MSGPS_S_0748'
-    basename = 's0748'
-    src_base = "S0748"
+    datdir = '/data/S_1224/selfcal_data'
+    inbase = 'MSGPS_S_1224'
+    basename = 's1224'
+    src_base = "S1224"
     logfile = "%s.log" %basename
 
-    beamlist_file = '/data/S_0748/beams/S0759_beams_all.npy'
+    beamlist_file = '/data/S_1224/beams/S1224_all.npy'
     beam_list = np.load(beamlist_file)
     beam_nums = np.arange(len(beam_list), dtype=int)
 

@@ -22,24 +22,24 @@ if __name__ == "__main__":
     do_get_tf  = 1
     do_get_mjd = 0
 
-    datdir = '/data/S_0748/selfcal_data'
-    inbase = 'MSGPS_S_0748'
-    basename = 's0748'
-    src_base = "S0748"
+    datdir = '/data/M70-2/M70/data'
+    inbase = 'm70-2'
+    basename = 'm70'
+    src_base = "m70"
     logfile = "%s.log" %basename
 
-    beamlist_file = '/data/S_0748/beams/S0759_beams_all.npy'
+    beamlist_file = '/data/M70-2/M70/beams/m70_test.npy'
     beam_list = np.load(beamlist_file)
     beam_nums = np.arange(len(beam_list), dtype=int)
 
     beam_locs = beam_list[:]
     beam_nums = beam_nums[:]
 
-    spw_list = range(16)
+    spw_list = range(1)
 
-    proc_kwargs = {'tstep' : 9999.0,
+    proc_kwargs = {'tstep' : 300,
                    'nproc' : 10,
-                   'write_tstep' : 99999,
+                   'write_tstep' : 300,
                    'datacolumn' : 'corrected',
                    'basename' : basename,
                    'target_id' : 0, 'phase_id' : 3, 'flux_id' : 1,
@@ -47,11 +47,15 @@ if __name__ == "__main__":
                    'Nskip' : 0,
                    'use_flags' : True, 
                    'use_weights' : True, 
-                   'uv_lam_taper' : 5.5e3, 
+                   'uv_lam_taper' : 1e3, 
                    'uvlim' : [1.0, 1e10]}
 
     # open first spw to phase center
-    msfile = "%s/%s_spw%03d.ms" %(datdir, inbase, 0)
+    if len(spw_list) == 1:
+        msfile = "%s/%s.ms" %(datdir, inbase)
+    else:
+        msfile = "%s/%s_spw%03d.ms" %(datdir, inbase, 0)
+
     pos0 = be.get_field_phasecenter(msfile, proc_kwargs['target_id'])
     ell_ems = np.vstack( [be.get_ell_m(pp, pos0) for pp in beam_locs] )
 
@@ -60,7 +64,11 @@ if __name__ == "__main__":
         for spw_ii in spw_list:
             tstart = time.time()
             proc_kwargs['basename'] = "spw%02d" %spw_ii
-            inms = "%s/%s_spw%03d.ms" %(datdir, inbase, spw_ii)
+            if len(spw_list) == 1:
+                inms = msfile
+            else:
+                inms = "%s/%s_spw%03d.ms" %(datdir, inbase, spw_ii)
+
             mdats, tt, freqs, proc_times = be.average_visibilities(inms, ell_ems, beam_nums,
                                                                    spws=[0], logfile=logfile,
                                                                    **proc_kwargs)
@@ -71,7 +79,7 @@ if __name__ == "__main__":
         np.save(f"{basename}_freqs.npy", full_freqs)
             
         # Combine spw
-        be.multibeam_combine('.', len(beam_list))
+        be.multibeam_combine('.', len(beam_list), len(spw_list))
 
         dt = time.time() - tstart
         print("TOTAL TIME = %.2f min" %(dt / 60.0))

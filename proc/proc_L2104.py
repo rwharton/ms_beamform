@@ -22,13 +22,13 @@ if __name__ == "__main__":
     do_get_tf  = 1
     do_get_mjd = 0
 
-    datdir = '/data/S_0748/selfcal_data'
-    inbase = 'MSGPS_S_0748'
-    basename = 's0748'
-    src_base = "S0748"
+    datdir = '/data/L_2104/selfcal_data'
+    inbase = 'MSGPS_L_2104'
+    basename = 'L2104'
+    src_base = "L2104"
     logfile = "%s.log" %basename
 
-    beamlist_file = '/data/S_0748/beams/S0759_beams_all.npy'
+    beamlist_file = '/data/L_2104/beams/J1316_beams.npy'
     beam_list = np.load(beamlist_file)
     beam_nums = np.arange(len(beam_list), dtype=int)
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
                    'Nskip' : 0,
                    'use_flags' : True, 
                    'use_weights' : True, 
-                   'uv_lam_taper' : 5.5e3, 
+                   'uv_lam_taper' : 2.8e3, 
                    'uvlim' : [1.0, 1e10]}
 
     # open first spw to phase center

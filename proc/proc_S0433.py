@@ -22,13 +22,13 @@ if __name__ == "__main__":
     do_get_tf  = 1
     do_get_mjd = 0
 
-    datdir = '/data/S_0748/selfcal_data'
-    inbase = 'MSGPS_S_0748'
-    basename = 's0748'
-    src_base = "S0748"
+    datdir = '/data/S_0433/selfcal_data'
+    inbase = 'MSGPS_S_0433'
+    basename = 's0433'
+    src_base = "S0433"
     logfile = "%s.log" %basename
 
-    beamlist_file = '/data/S_0748/beams/S0759_beams_all.npy'
+    beamlist_file = '/data/S_0433/new_beams/new_beams.npy'
     beam_list = np.load(beamlist_file)
     beam_nums = np.arange(len(beam_list), dtype=int)
 
