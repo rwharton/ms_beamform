@@ -1,7 +1,7 @@
 import numpy as np
 import multiprocessing
 import casatools
-import time, sys, glob, os
+import time, sys, glob, os, re
 from functools import partial
 from contextlib import closing
 import gc
@@ -93,17 +93,18 @@ def check_make_dir(dirname):
     return
 
 
-def save_beam_files(basename, write_step_num, tt, mdats_all, bnums):
-    print("    Writing Step %d" %write_step_num)
+def save_beam_files(basename, write_step_num, tt, mdats_all, bnums, outdir='.'):
+    print(f"    Writing Step {write_step_num}")
     sys.stdout.flush()
 
-    tt_file = "%s_tt_step%03d.npy" %(basename, write_step_num)
+    tt_file = f"{outdir}/{basename}_tt_step{write_step_num:03d}.npy"
+    
     np.save(tt_file, tt)
     for ii, mdat in enumerate(mdats_all):
-        bdir = "beam%05d" %(bnums[ii])
+        bdir = f"{outdir}/beam{bnums[ii]:05d}"
         check_make_dir(bdir)
-        beam_file = "%s_beam%05d_step%03d.npy" %(basename, bnums[ii], write_step_num)
-        beam_path = "%s/%s" %(bdir, beam_file)
+        beam_file = f"{basename}_beam{bnums[ii]:05d}_step{write_step_num:03d}.npy"
+        beam_path = f"{bdir}/{beam_file}"
         np.save(beam_path, mdat)
     return        
 
@@ -129,10 +130,11 @@ def divide_by_baselines(dd, flags_int, Nbl_min):
     return dd
 
 
-def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=4, 
+def average_visibilities(infile, ell_ems=[], beam_nums=[], spws=[0], tstep=1.0, nproc=4, 
                          write_tstep=0, basename="", target_id=2, phase_id=1, flux_id=0, 
                          Nbl_min=0, datacolumn='corrected', Nskip=0, use_flags=True, 
-                         use_weights=True, uv_lam_taper=0, uvlim=[1.0, 1e10], logfile=None):
+                         use_weights=True, uv_lam_taper=0, uvlim=[1.0, 1e10], 
+                         outdir='.', logfile=None):
     # Get channel frequencies using the ms metadata tool
     msmd.open(infile)
     freqs = np.array([])
@@ -322,7 +324,8 @@ def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=
         if write_tstep > 0:
             if jj == ((write_step_num + 1) * write_tstep - 1):
                 write_time_start = time.time()
-                save_beam_files(basename, write_step_num, tt_all, mdats_all, beam_nums)
+                save_beam_files(basename, write_step_num, tt_all, 
+                                mdats_all, beam_nums, outdir=outdir)
                 mdats_all = []
                 tt_all = np.array([])
                 write_times.append( time.time() - write_time_start )
@@ -338,7 +341,8 @@ def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=
     # write that now.
     if len(mdats_all) and write_tstep > 0:
         write_time_start = time.time()
-        save_beam_files(basename, write_step_num, tt_all, mdats_all, beam_nums)
+        save_beam_files(basename, write_step_num, tt_all, mdats_all, 
+                        beam_nums, outdir=outdir)
         mdats_all = []
         tt_all = np.array([])
         write_times.append( time.time() - write_time_start )
@@ -537,10 +541,22 @@ def log_output(text, logfile):
     return
 
 
-def combine_spw(indir, bnum, nspw):
+def combine_spw(indir, bnum, outbase=None):
     dd_list = []
-    for ii in range(nspw):
-        infile = "%s/spw%02d_beam%05d_step000.npy" %(indir, ii, bnum)
+    # get spws 
+    glob_str = f"{indir}/spw*_beam{bnum:05d}*npy"
+    npyfiles = glob.glob(glob_str)
+    spw_list = []
+    for nfile in npyfiles:
+        fname = nfile.split('/')[-1]
+        p = re.search(f"spw([0-9]+)_beam{bnum:05d}", fname)
+        if p is not None:
+            spw_list.append( int(p.group(1)) )
+    
+    spws = np.unique(spw_list)
+
+    for ii in spws:
+        infile = f"{indir}/spw{ii:02d}_beam{bnum:05d}_step000.npy"
         dd_ii = np.load(infile)
         dd_list.append(dd_ii)
 
@@ -551,20 +567,32 @@ def combine_spw(indir, bnum, nspw):
 
     dd_out = np.array([dd0, dd1, dd2, dd3])
 
-    outfile = "%s/beam%03d_full.npy" %(indir, bnum)
+    if outbase is None:
+        outfile = f"{indir}/beam{bnum:05d}_full.npy" 
+    else:
+        outfile = f"{indir}/{outbase}_beam{bnum:05d}_full.npy" 
+        
     np.save(outfile, dd_out)
+
+    # If everything worked, then clean up the spw files
+    if os.path.exists(outfile):
+        for nfile in npyfiles:
+            if os.path.exists(nfile):
+                os.remove(nfile)
 
     return
 
 
-def multibeam_combine(topdir, Nbeams, nspw):
+def multibeam_combine(topdir, outbase=None):
     """
     assume b00000 etc
     """
-    for bnum in range(Nbeams):
+    glob_str = f"{topdir}/beam[0-9]*[0-9]"
+    bdirs = glob.glob(glob_str)
+    bnum_list = [ int(bb.rsplit('beam', 1)[-1]) for bb in bdirs ]
+    bnums = np.unique(bnum_list)
+    for bnum in bnums:
         indir = f"{topdir}/beam{bnum:05d}"
-        combine_spw(indir, bnum, nspw)
-
+        combine_spw(indir, bnum, outbase=outbase)
     return
-
 

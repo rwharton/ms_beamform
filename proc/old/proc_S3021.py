@@ -5,6 +5,7 @@ from functools import partial
 from contextlib import closing
 import gc
 import casatools
+from argparse import ArgumentParser
 
 import beam_extract as be
 import beam_combine as bc
@@ -25,7 +26,6 @@ if __name__ == "__main__":
     datdir = '/data/mini/S_3021/selfcal_data'
     inbase = 'MSGPS_S_3021'
     basename = 's3021'
-    src_base = "S3021"
     logfile = "%s.log" %basename
 
     beamlist_file = '/data/mini/S_3021/beams/S3021_beams.npy'
@@ -76,14 +76,9 @@ if __name__ == "__main__":
         dt = time.time() - tstart
         print("TOTAL TIME = %.2f min" %(dt / 60.0))
 
-    #if do_get_tf:
-    #    be.get_and_save_spw_freqs(infile, spw_list, basename=basename)
-
     if do_get_mjd:
         tfiles = glob.glob("%s_tt_step*.npy" %(basename))
         tfiles.sort()
         tt = np.load(tfiles[0])
         tdict = be.get_time_info(tt[0])
         np.save("%s_mjd_start.npy" %(basename), [tdict['mjd']])
-        
-    print("STOP")

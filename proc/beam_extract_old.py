@@ -137,7 +137,7 @@ def divide_by_baselines(dd, flags_int, Nbl_min):
     return dd
 
 
-def average_visibilities(infile, ell_ems, beam_nums, spws=[0], tstep=1.0, nproc=4, 
+def average_visibilities(infile, ell_ems=[], beam_nums=[], spws=[0], tstep=1.0, nproc=4, 
                          write_tstep=0, basename="", target_id=2, phase_id=1, flux_id=0, 
                          Nbl_min=0, datacolumn='corrected', Nskip=0, use_flags=True, 
                          use_weights=True, uv_lam_taper=0, uvlim=[1.0, 1e10], logfile=None):
