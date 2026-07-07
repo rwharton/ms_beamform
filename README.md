@@ -1,5 +1,7 @@
 # A Beamforming Approach to RM Determination
 
+## Basic Idea 
+
 These scripts are provided to enable rapid RM characterization 
 using beamformed visibilities. For a given list of sky positions, 
 we can apply the appropriate phase offsets and extract visibility 
@@ -25,4 +27,15 @@ In the following, we will give a recipe for running the scripts for
 beamforming and RM synthesis to go from a CASA measurement set to 
 a catalog of RMs.
 
+
+## Installation and Requirements
+
+For the beamforming, the main requirement is `casatools`, which 
+is needed to read the visibilities in CASA measurement set format. 
+For the RM synthesis we are using 
+[RM-Tools](https://github.com/CIRADA-Tools/RM-Tools), which needs 
+to be installed independently.  I will figure out installation 
+instructions later, but for now you just need to have RM-Tools 
+installed and I will provide a singularity image that has 
+`casatools`.
 
