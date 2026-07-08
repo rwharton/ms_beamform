@@ -232,5 +232,10 @@ I will now make a directory called `plots` and run:
 > $ python ~/src/ms_beamform/proc/plot_beam.py --outdir plots --freqfile beams/test_freqs.npy --tsamp 8 beams/beam0000*/*npy
 ```
 
+Here are plots from one of the sources (clearly not chosen randomly...).  The spectrum looks very nice and shows some clear QU oscillations:
 
 ![alt text](example/test_spec.png?raw=true)
+
+and here's the time series, which doesn't look too bad:
+
+![alt text](example/test_time.png?raw=true)
