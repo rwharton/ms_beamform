@@ -232,3 +232,5 @@ I will now make a directory called `plots` and run:
 > $ python ~/src/ms_beamform/proc/plot_beam.py --outdir plots --freqfile beams/test_freqs.npy --tsamp 8 beams/beam0000*/*npy
 ```
 
+
+![alt text](https://github.com/rwharton/ms_beamform/tree/main/example/test_spec.png?raw=true)
