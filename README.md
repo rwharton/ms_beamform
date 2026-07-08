@@ -313,4 +313,4 @@ The plots are nice and are very useful for checking data quality, but for many t
 007      -401.06        6.16     0.321     0.011     29.1     80.41      5.10
 ``` 
 
-The source we looked at above is in Beam 000.  The uncertainties and SNR values here need to be taken with a bit of caution.  One of my TO DO items is to do the error estimates properly.  I think these are mostly right though.  Certainly the RMs of relatively bright known sources check out.  For example, that first source is a pulsar with a precisely measured RM.
+The source we looked at above is in Beam 000.  The uncertainties and SNR values here need to be taken with a bit of caution.  One of my TO DO items is to do the error estimates properly.  I think these are mostly right though.  Certainly the RMs of relatively bright known sources check out.  For the first source, the proper QU channel imaging method gives a peak RM of `-1535.4 +/- 1.9 rad/m^2`.
