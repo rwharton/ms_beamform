@@ -297,4 +297,20 @@ and a nice peak in the CLEAN-ed Faraday spectrum.
 
 ![alt text](example/cleanFDF.png)
 
+The plots are nice and are very useful for checking data quality, but for many things we just want to see what the polarised flux and RM are.  Those are summarized in the catalog (here called `test_cat.txt`).  The catalog looks like this:
 
+```
+#Beam     phi       phi_err       PI      PI_err     SNR      PA0     PA0_err
+#      (rad/m^2)   (rad/m^2)    (mJy)     (mJy)              (deg)     (deg)
+#================================================================================
+000     -1532.23        1.84     1.072     0.011     97.5     89.35      1.52
+001     -2057.03       36.06     0.055     0.011      5.0      5.27     29.84
+002     -1389.99       46.46     0.042     0.011      3.9    129.82     38.47
+003     -1527.92       38.58     0.051     0.011      4.6    151.96     31.97
+004     -2972.82        8.23     0.240     0.011     21.8     53.02      6.82
+005     -1200.46       31.52     0.063     0.011      5.7    164.36     26.10
+006     -1704.64        7.43     0.265     0.011     24.1     93.98      6.16
+007      -401.06        6.16     0.321     0.011     29.1     80.41      5.10
+``` 
+
+The source we looked at above is in Beam 000.  The uncertainties and SNR values here need to be taken with a bit of caution.  One of my TO DO items is to do the error estimates properly.  I think these are mostly right though.  Certainly the RMs of relatively bright known sources check out.  For example, that first source is a pulsar with a precisely measured RM.
