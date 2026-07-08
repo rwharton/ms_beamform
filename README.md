@@ -140,3 +140,59 @@ OK, now we are ready to run. I will make a directory called `beams` (but you can
 ```
 > python ~/src/ms_beamform/proc/run_beamform.py --beamfile example_beams.npy --outbase test --outdir beams --nproc 10 --uv_taper_lam 5500 selfcal_data/MSGPS_S_3021_spw0*ms
 ```
+
+When it starts it should give you some info about the inputs:
+
+```
+Found 16 MS
+selfcal_data/MSGPS_S_3021_spw000.ms
+selfcal_data/MSGPS_S_3021_spw001.ms
+selfcal_data/MSGPS_S_3021_spw002.ms
+selfcal_data/MSGPS_S_3021_spw003.ms
+selfcal_data/MSGPS_S_3021_spw004.ms
+selfcal_data/MSGPS_S_3021_spw005.ms
+selfcal_data/MSGPS_S_3021_spw006.ms
+selfcal_data/MSGPS_S_3021_spw007.ms
+selfcal_data/MSGPS_S_3021_spw008.ms
+selfcal_data/MSGPS_S_3021_spw009.ms
+selfcal_data/MSGPS_S_3021_spw010.ms
+selfcal_data/MSGPS_S_3021_spw011.ms
+selfcal_data/MSGPS_S_3021_spw012.ms
+selfcal_data/MSGPS_S_3021_spw013.ms
+selfcal_data/MSGPS_S_3021_spw014.ms
+selfcal_data/MSGPS_S_3021_spw015.ms
+
+Found 16 spws
+[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+Found beamfile: example_beams.npy
+  with 8 beams
+```
+
+and then will print some debugging info as it's working.  If you look in the ouput directory you will see
+
+```
+> ls beams/
+beam00000  beam00001  beam00002  beam00003  beam00004  beam00005  
+beam00006  beam00007  spw00_tt_step000.npy  test_20260708T135254.log
+```
+
+that there are now folders for each beam (containing the data), a numpy file recording sample times, and a log file.  Looking inside one of the beam folders, you will see that the spectral windows are each being processed separately. 
+
+```
+> ls beam00000
+spw00_beam00000_step000.npy  spw01_beam00000_step000.npy  
+spw02_beam00000_step000.npy  spw03_beam00000_step000.npy
+```
+
+These are intermediate data products and will be combined into one file at the end.  All beams are being processed at the same time and each spw is processed sequentially.  For me, each spw took about 40 seconds each, and total processing was about 10 minutes.  More beams will take longer, of course, but not by a ton.  The slowest part of the process is just reading the measurement set files and all the beams are read at the same time.
+
+Now that processing is done, let's take a look to see what was produced.  In the output directory we now have:
+
+```
+> ls
+beam00000  beam00001  beam00002  beam00003  beam00004  beam00005  
+beam00006  beam00007  test_20260708T135254.log  test_freqs.npy  times
+```
+
+We get a log file, the beam data folders, and a `npy` file containing each of the channel frequencies of the full band (ie, combining all the spectral windows).  The `times` folder contains the time stamps for each time sample, which we won't really need. Each of the beam folders now just contains one spw-combined data file.  For example in beam0 we find the file `beam00000_full.npy`.  
