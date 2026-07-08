@@ -39,3 +39,13 @@ instructions later, but for now you just need to have RM-Tools
 installed and I will provide a singularity image that has 
 `casatools`.
 
+
+## Example End-to-End Processing
+
+Let's now go through an example to see how things work.  
+To get started, we will need:
+
+ - A calibrated data set in CASA MS format
+ - A numpy array of source positions
+
+test
