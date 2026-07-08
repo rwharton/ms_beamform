@@ -242,4 +242,59 @@ Here's the time series, which doesn't look too bad:
 ![alt text](example/test_time.png)
 
 
+### RM Synthesis
+
+Now that we have prepared the data, we can run RM synthesis.  We will just be using 
+[RM-Tools](https://github.com/CIRADA-Tools/RM-Tools), so that package needs to be 
+installed for this script to run.  The script we are using is called `rm_proc` and 
+we can see it's usage here:
+
+```
+$ python ~/src/ms_beamform/proc/rm_proc.py -h
+usage: rm_proc.py [-h] [--outdir OUTDIR] --freqfile FREQFILE 
+                       [--maskfile MASKFILE] [--niter NITER] 
+                       [--threshold THRESHOLD] [--phimax PHIMAX] 
+                       [--cat CAT] dat_files [dat_files ...]
+
+Make time and spectrum plots for IQUV data in beams
+
+positional arguments:
+  dat_files             Beam data file(s) for RM CLEAN-ing
+
+options:
+  -h, --help            show this help message and exit
+  --outdir OUTDIR       Output directory (def: cwd)
+  --freqfile FREQFILE   npy array of channel frequencies
+  --maskfile MASKFILE   npy array of channel mask
+  --niter NITER         Number of CLEAN iterations (def=200)
+  --threshold THRESHOLD
+                        CLEAN threshold in (neg) sigma (def=-2)
+  --phimax PHIMAX       Maximum Faraday depth (rad/^2, def: -1, no max)
+  --cat CAT             Base name of catalog file (def: none, dont make catalog)
+```
+
+This script will take the data files we produced, write them to the input format that RM-Tools tasks require, then run `rmsynth1d` and `rmclean1d`.  Let's make a directory called `rm_proc` for the output and then run
+
+```
+> python ~/src/ms_beamform/proc/rm_proc.py --freqfile beams/test_freqs.npy --outdir rm_proc --phimax 5000 --niter 200 --threshold -2 --cat test_cat beams/beam*/*npy
+```
+
+We are setting `phimax` to be `5000 rad/m^2` here just to make the plots prettier.  If you do not provide a value, then it will just take the highest possible RM to search over.
+
+Taking a look in the `rm_proc` folder we see a bunch of folders corresponding to the input beam data names and a text catalog:
+
+```
+> ls
+test_beam00000_full  test_beam00002_full  test_beam00004_full  test_beam00006_full  test_cat.txt
+test_beam00001_full  test_beam00003_full  test_beam00005_full  test_beam00007_full
+```
+
+Inside each data folder are the products produced by `rmsynth1d` and `rmclean1d`, including the JSON parameter results and various plots.  For example, in the folder for the first beam we see a very nice spectrum:
+
+![alt text](example/RMspec.png)
+
+and a nice peak in the CLEAN-ed Faraday spectrum.
+
+![alt text](example/cleanFDF.png)
+
 
