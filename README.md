@@ -195,4 +195,8 @@ beam00000  beam00001  beam00002  beam00003  beam00004  beam00005
 beam00006  beam00007  test_20260708T135254.log  test_freqs.npy  times
 ```
 
-We get a log file, the beam data folders, and a `npy` file containing each of the channel frequencies of the full band (ie, combining all the spectral windows).  The `times` folder contains the time stamps for each time sample, which we won't really need. Each of the beam folders now just contains one spw-combined data file.  For example in beam0 we find the file `beam00000_full.npy`.  
+We get a log file, the beam data folders, and a `npy` file containing each of the channel frequencies of the full band (ie, combining all the spectral windows) in Hz.  The `times` folder contains the time stamps for each time sample, which we won't really need. 
+
+Each of the beam folders now just contains one spw-combined data file.  For example in beam0 we find the file `test_beam00000_full.npy`, where `test` is the output base we gave.  The data files are just numpy arrays with shape `(4, Nt, Nf)` where 4 is the number of stokes parameters (I, Q, U, V), `Nt` is the number of time samples, and `Nf` is the number of frequency channels.
+
+
