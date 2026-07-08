@@ -43,9 +43,35 @@ installed and I will provide a singularity image that has
 ## Example End-to-End Processing
 
 Let's now go through an example to see how things work.  
+
+### Requirements
+
 To get started, we will need:
 
  - A calibrated data set in CASA MS format
  - A numpy array of source positions
 
-test
+The MS data can be split up so that each spectral window 
+has its own measurement set (ie, MMGPS style) or can be 
+one MS containing many spectral windows (ie, normal style). 
+Right now (08 Jul 2026), this code only works with the MMGPS 
+style, but the other style will be supported very soon.
+
+The numpy array of source positions give the sky coordinates 
+at which beams will be formed and data extracted.  The positions 
+will come from some existing catalog (e.g., from source finding) 
+or from a known target of interest.  I can add a script for 
+converting a FITS catalog (or csv or whatever) to the proper 
+numpy format, but it is very simple.  The numpy array will 
+have the form:
+
+```
+np.array([['J2000', '17:42:08.57714464', '-28.55.36.81117535'],
+          ['J2000', '17:42:07.88886029', '-29.18.45.58701964'],
+          ['J2000', '17:42:06.58545272', '-29.31.47.76699699']], dtype='<U18')
+```
+
+where each row contains three elements: `'J2000'`, the Right Asencsion string, 
+and the Declination string (in CASA coordinate format).
+
+
