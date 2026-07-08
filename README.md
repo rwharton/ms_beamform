@@ -44,7 +44,7 @@ installed and I will provide a singularity image that has
 
 Let's now go through an example to see how things work.  
 
-### Requirements
+### Getting Ready
 
 To get started, we will need:
 
@@ -88,4 +88,39 @@ MSGPS_S_3021_spw000.ms  MSGPS_S_3021_spw004.ms  MSGPS_S_3021_spw008.ms  MSGPS_S_
 MSGPS_S_3021_spw001.ms  MSGPS_S_3021_spw005.ms  MSGPS_S_3021_spw009.ms  MSGPS_S_3021_spw013.ms
 MSGPS_S_3021_spw002.ms  MSGPS_S_3021_spw006.ms  MSGPS_S_3021_spw010.ms  MSGPS_S_3021_spw014.ms
 MSGPS_S_3021_spw003.ms  MSGPS_S_3021_spw007.ms  MSGPS_S_3021_spw011.ms  MSGPS_S_3021_spw015.ms
+```
+
+### Beamforming
+
+With our beam list and data set, we are now ready to run the beamforming code that 
+will extract the IQUV data from the measurement set(s). The script we will need is 
+`run_beamform.py`, which is in the `proc` folder.  If we run with `-h` we can see 
+the usage:
+
+```
+> python ~/src/ms_beamform/proc/run_beamform.py -h
+usage: run_beamform.py [-h] --beamfile BEAMFILE --outbase OUTBASE 
+                       [--outdir OUTDIR] [--uv_taper_lam UV_TAPER_LAM]
+                       [--field FIELD] [--nproc NPROC] [--no_weights] 
+                       [--no_flags] [--use_data_col]
+                       ms_files [ms_files ...]
+
+Extract beamformed IQUV dynamic spectra from MS data
+
+positional arguments:
+  ms_files              Path to data Measurement Set(s). If each spw has its own MS, 
+                        then each should end in 'spw[num].ms'
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --beamfile BEAMFILE   Path to *npy beam positions file
+  --outbase OUTBASE     Base name for output files
+  --outdir OUTDIR       Output directory for beam data (def: cwd)
+  --uv_taper_lam UV_TAPER_LAM
+                        Lower baseline taper in wavelengths (default: 0, no taper)
+  --field FIELD         CASA field number of target (def=0)
+  --nproc NPROC         Number of parallel processes
+  --no_weights          Ignore visibility weights (def: False)
+  --no_flags            Ignore MS data flags (def: False)
+  --use_data_col        Use DATA column (def: use CORRECTED column)
 ```
