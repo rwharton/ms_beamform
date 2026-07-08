@@ -200,3 +200,35 @@ We get a log file, the beam data folders, and a `npy` file containing each of th
 Each of the beam folders now just contains one spw-combined data file.  For example in beam0 we find the file `test_beam00000_full.npy`, where `test` is the output base we gave.  The data files are just numpy arrays with shape `(4, Nt, Nf)` where 4 is the number of stokes parameters (I, Q, U, V), `Nt` is the number of time samples, and `Nf` is the number of frequency channels.
 
 
+### Plotting Beam Data
+
+It can often be useful to look at the data for each of these beams.  
+To do this we have a script called `plot_beam.py` that will make plots 
+of the time series of IQUV and the spectra of IQUV.  Running `-h` gives 
+the usage for this script:
+
+```
+> python ~/src/ms_beamform/proc/plot_beam.py -h
+usage: plot_beam.py [-h] [--outdir OUTDIR] --freqfile FREQFILE 
+                    [--tsamp TSAMP] beam_files [beam_files ...]
+
+Make time and spectrum plots for IQUV data in beams
+
+positional arguments:
+  beam_files           Beam data file(s) for plotting
+
+options:
+  -h, --help           show this help message and exit
+  --outdir OUTDIR      Output directory for plots (def: cwd)
+  --freqfile FREQFILE  npy array of channel frequencies
+  --tsamp TSAMP        Visibility time resolution (s)
+```
+
+The `tsamp` value here is the integration time of each visibility sample.  For most of our MeerKAT observations it is about 8 seconds.  This is just to convert sample number to time (in sec) in the plots.  If you don't know it, you can just leave it blank and interpret the time axis as simply sample number.
+
+I will now make a directory called `plots` and run:
+
+```
+> $ python ~/src/ms_beamform/proc/plot_beam.py --outdir plots --freqfile beams/test_freqs.npy --tsamp 8 beams/beam0000*/*npy
+```
+
