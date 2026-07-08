@@ -239,7 +239,7 @@ Here are plots from one of the sources (clearly not chosen randomly...).  The sp
 but there's some RFI that we may want to zap later on.
 Here's the time series, which doesn't look too bad:
 
-![alt text](example/test_time.png?raw=true)
+![alt text](example/test_time.png)
 
 
 
