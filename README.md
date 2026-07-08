@@ -233,4 +233,4 @@ I will now make a directory called `plots` and run:
 ```
 
 
-![alt text](https://github.com/rwharton/ms_beamform/tree/main/example/test_spec.png?raw=true)
+![alt text](example/test_spec.png?raw=true)
