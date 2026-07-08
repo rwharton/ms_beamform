@@ -124,3 +124,19 @@ optional arguments:
   --no_flags            Ignore MS data flags (def: False)
   --use_data_col        Use DATA column (def: use CORRECTED column)
 ```
+
+The `beamfile` is the `*.npy` file of our desired beam positions, `outbase` is the desired base name for all output, `outdir` is the directory where you want the beam data to be written (each beam will get its own directory under this), `uv_taper_lam` sets an inner cutoff (in wavelengths) that is a cheap way of downweighting the shorter baselines, `field` is the field ID of the target in the measuremen set, `nproc` is the number of processes to run simultaneously, `no_weights` ignores the visibility weights in the measurement set, `no_flags` ignores the flags in the measurement set, and `use_data_col` says that we should use the `DATA` column and not the default `CORRECTED_DATA` column.
+
+One note of caution is that we are using the python package `multiprocessing` to run the parallel processing specified by `nproc`.  This works very well, but if you are running a machine with OpenMP, you should set the following environment variable:
+
+```
+export OMP_NUM_THREADS=1
+```
+
+so that each process just goes to one thread.  Otherwise you will see a significant slowdown.
+
+OK, now we are ready to run. I will make a directory called `beams` (but you can call it whatever you want) as the output directory for the beam data.  I will also set a `uv_taper_lam` of 5500 wavelengths.  We then run this as: 
+
+```
+> python ~/src/ms_beamform/proc/run_beamform.py --beamfile example_beams.npy --outbase test --outdir beams --nproc 10 --uv_taper_lam 5500 selfcal_data/MSGPS_S_3021_spw0*ms
+```
