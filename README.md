@@ -74,4 +74,18 @@ np.array([['J2000', '17:42:08.57714464', '-28.55.36.81117535'],
 where each row contains three elements: `'J2000'`, the Right Asencsion string, 
 and the Declination string (in CASA coordinate format).
 
+Save the array to a `*.npy` file with `np.save()`.
 
+For this example, I will use a list of 8 positions corresponding to 
+point sources in our field.  I have save these positions as a numpy 
+array in the file `example_beams.npy`.  The MS data are spread over 
+16 files corresponding to 16 spectral windows and I have put them in 
+a folder called `selfcal_data`:
+
+```
+> ls selfcal_data/
+MSGPS_S_3021_spw000.ms  MSGPS_S_3021_spw004.ms  MSGPS_S_3021_spw008.ms  MSGPS_S_3021_spw012.ms
+MSGPS_S_3021_spw001.ms  MSGPS_S_3021_spw005.ms  MSGPS_S_3021_spw009.ms  MSGPS_S_3021_spw013.ms
+MSGPS_S_3021_spw002.ms  MSGPS_S_3021_spw006.ms  MSGPS_S_3021_spw010.ms  MSGPS_S_3021_spw014.ms
+MSGPS_S_3021_spw003.ms  MSGPS_S_3021_spw007.ms  MSGPS_S_3021_spw011.ms  MSGPS_S_3021_spw015.ms
+```
