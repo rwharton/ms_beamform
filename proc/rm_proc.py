@@ -8,6 +8,7 @@ import subprocess as sub
 import os
 import glob
 import re
+import sys
 from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 import json
 from argparse import ArgumentParser
