@@ -12,6 +12,7 @@ import sys
 from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 import json
 from argparse import ArgumentParser
+from astropy.table import Table
 
 def blist_to_ccs(blist_file):
     """
@@ -163,7 +164,18 @@ def get_cat_dat(I_row, QU_row):
     dlist = [ I, dI, Q, dQ, U, dU, V, dV ]
     darr = np.vstack( dlist ).T
 
-    return [freqs, darr]
+    # correct nans
+    if np.any(np.isnan(darr)):
+        xx = np.where( np.isnan(darr) )
+        darr[xx] = 0.0
+    
+    flag = 0
+    if ( np.all( darr[:,2]==0 ) or np.all( darr[:,3] == 0 ) ):
+        flag += 1
+    if ( np.all( darr[:,4]==0 ) or np.all( darr[:,5] == 0 ) ):
+        flag += 1
+
+    return [freqs, darr, flag]
 
 
 
@@ -302,6 +314,53 @@ def rm_clean_many(npy_files, freq_file, mask_file=None, outdir='.',
     return
 
 
+def cat_rm_clean_many(I_tab, QU_tab, mask_file=None, outdir='.', 
+                      niter=200, threshold=-2, phimax=None):
+    """
+    Given a Stokes I source catalog and QU catalog, 
+    run rm clean on all rows and output to individual 
+    directories
+
+    I_tab and QU_tab are Tables
+    """
+    N = len(I_tab)
+    for ii in range(N):
+        I_row  = I_tab[ii]
+        QU_row = QU_tab[ii]
+
+        basenm = f"beam{ii:05d}" 
+        # directory where clean data will go
+        bdir = f"{outdir}/{basenm}"
+        if not os.path.exists(bdir):
+            os.mkdir(bdir)
+        else:
+            print(f"{bdir} already exists!  skipping")
+            continue
+
+        # read in npy data and write to text 
+        # file for rm synthesis and clean
+        freqs, darr, flag = get_cat_dat(I_row, QU_row)
+        print(f"{flag=}")
+        if flag:
+            print(f"Data row {ii} all flagged, skipping")
+            continue  
+
+        if mask_file is not None:
+            mask = np.load(mask_file)
+            xx = np.where( mask )[0]
+        else:
+            xx = np.arange(len(freqs))
+        dat_file = f"{bdir}/{basenm}.txt"
+        darr_to_txt(dat_file, darr[xx], freqs[xx])
+
+        # run rm synthesis
+        ret1 = run_rmsynth1d(dat_file, phimax=phimax)
+        
+        # run rm clean
+        ret2 = run_rmclean1d(dat_file, niter, threshold)
+    
+    return
+
 def read_FDF(datfile):
     """
     Read in faraday depth spectra
@@ -433,20 +492,33 @@ def json_to_cat(bnum, json_file):
     read in json file results for clean, and convert 
     to a string to be print in catalog
     """
-    with open(json_file, "r") as fin:
-        dd = json.load(fin)
+    # Need to check if json file exists. For image 
+    # RM measurement, some may not exist, so we'll just 
+    # put nans
+    if os.path.exists(json_file): 
+        with open(json_file, "r") as fin:
+            dd = json.load(fin)
 
-    rm = dd['phiPeakPIfit_rm2']
-    rm_err = dd['dPhiPeakPIfit_rm2']
+        rm = dd['phiPeakPIfit_rm2']
+        rm_err = dd['dPhiPeakPIfit_rm2']
 
-    # Convert to mJy
-    PI = dd['ampPeakPIfit'] * 1e3
-    PI_err = dd['dAmpPeakPIfit'] * 1e3
+        # Convert to mJy
+        PI = dd['ampPeakPIfit'] * 1e3
+        PI_err = dd['dAmpPeakPIfit'] * 1e3
 
-    PI_snr = dd['snrPIfit']
+        PI_snr = dd['snrPIfit']
 
-    PA0 = dd['polAngle0Fit_deg']
-    PA0_err = dd['dPolAngle0Fit_deg']
+        PA0 = dd['polAngle0Fit_deg']
+        PA0_err = dd['dPolAngle0Fit_deg']
+    else:
+        rm = np.nan
+        rm_err = np.nan
+        PI = np.nan
+        PI_err = np.nan
+        PI_snr = np.nan
+        PI_snr = np.nan
+        PA0 = np.nan
+        PA0_err = np.nan
 
     ostr = f"{bnum:03d}   {rm:10.2f}  {rm_err:10.2f}  " +\
            f"{PI:8.3f}  {PI_err:8.3f}  {PI_snr:7.1f}  "+\
@@ -460,20 +532,33 @@ def json_to_cat_coord(bnum, json_file, ra, dec):
     read in json file results for clean, and convert 
     to a string to be print in catalog
     """
-    with open(json_file, "r") as fin:
-        dd = json.load(fin)
+    # Need to check if json file exists. For image 
+    # RM measurement, some may not exist, so we'll just 
+    # put nans
+    if os.path.exists(json_file): 
+        with open(json_file, "r") as fin:
+            dd = json.load(fin)
 
-    rm = dd['phiPeakPIfit_rm2']
-    rm_err = dd['dPhiPeakPIfit_rm2']
+        rm = dd['phiPeakPIfit_rm2']
+        rm_err = dd['dPhiPeakPIfit_rm2']
 
-    # Convert to mJy
-    PI = dd['ampPeakPIfit'] * 1e3
-    PI_err = dd['dAmpPeakPIfit'] * 1e3
+        # Convert to mJy
+        PI = dd['ampPeakPIfit'] * 1e3
+        PI_err = dd['dAmpPeakPIfit'] * 1e3
 
-    PI_snr = dd['snrPIfit']
+        PI_snr = dd['snrPIfit']
 
-    PA0 = dd['polAngle0Fit_deg']
-    PA0_err = dd['dPolAngle0Fit_deg']
+        PA0 = dd['polAngle0Fit_deg']
+        PA0_err = dd['dPolAngle0Fit_deg']
+    else:
+        rm = np.nan
+        rm_err = np.nan
+        PI = np.nan
+        PI_err = np.nan
+        PI_snr = np.nan
+        PI_snr = np.nan
+        PA0 = np.nan
+        PA0_err = np.nan
 
     ostr = f"{bnum:03d}   {rm:10.2f}  {rm_err:10.2f}  " +\
            f"{PI:8.3f}  {PI_err:8.3f}  {PI_snr:7.1f}  "+\
@@ -730,16 +815,19 @@ def plot_frac_pol(infile, rm_txt, cc0, vmin=None, vmax=None,
 
 def parse_input():
     """
-    Parse arguments to MS beamform
+    Parse arguments to Image cat RM synthesis
     """
-    prog_desc = "Make time and spectrum plots for IQUV data in beams"
+    prog_desc = "Run RM synthsis on QU spectra from catalog"
     parser = ArgumentParser(description=prog_desc)
 
     parser.add_argument('--outdir',
                         help='Output directory (def: cwd)',
                         default='.', required=False)
-    parser.add_argument('--freqfile',
-                        help='npy array of channel frequencies',
+    parser.add_argument('--Icat',
+                        help='Stokes I source catalog',
+                        required=True)
+    parser.add_argument('--QUcat',
+                        help='Stokes QU source catalog',
                         required=True)
     parser.add_argument('--maskfile',
                         help='npy array of channel mask',
@@ -753,28 +841,20 @@ def parse_input():
     parser.add_argument('--phimax', type=float,
                         help='Maximum Faraday depth (rad/^2, def: -1, no max)',
                         default=-1, required=False)
-    parser.add_argument('--cat',
+    parser.add_argument('--outcat',
                         help='Base name of catalog file (def: none, dont make catalog)',
                         required=False)
-    parser.add_argument('dat_files', nargs='+',
-                        help='Beam data file(s) for RM CLEAN-ing')
 
     args = parser.parse_args()
 
     return args
 
 
-    
 if __name__ == "__main__":
     # Parse command line input
     args = parse_input()
 
-    catbase = args.cat
-
-    freqfile = args.freqfile
-    if not os.path.exists(freqfile):
-        print(f"Freq file not found: {freqfile}")
-        sys.exit(0)
+    catbase = args.outcat
 
     maskfile = args.maskfile
     if maskfile is not None:
@@ -793,11 +873,20 @@ if __name__ == "__main__":
         
     niter = args.niter
     threshold = args.threshold
-    dat_files = args.dat_files
+
+    # Open cats and make sure they are the same size
+    I_tab  = Table.read(args.Icat)
+    QU_tab = Table.read(args.QUcat)
+
+    if (len(I_tab) != len(QU_tab)):
+        print("I and QU catalogs have different number of rows!")
+        print(f"len(Icat)  = {len(I_tab)}")
+        print(f"len(QUcat) = {len(QU_tab)}")
+        sys.exit(0)
     
-    rm_clean_many(dat_files, freqfile, mask_file=maskfile, 
-                  outdir=outdir, niter=niter, threshold=threshold, 
-                  phimax=phimax)
+    cat_rm_clean_many(I_tab, QU_tab, mask_file=maskfile, 
+                      outdir=outdir, niter=niter, 
+                      threshold=threshold, phimax=phimax)
 
     if catbase is not None: 
         catfile = f"{outdir}/{catbase}.txt"

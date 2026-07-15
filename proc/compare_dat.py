@@ -12,6 +12,8 @@ import sys
 from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 import json
 from argparse import ArgumentParser
+from astropy.table import Table
+
 
 def blist_to_ccs(blist_file):
     """
@@ -129,9 +131,9 @@ def get_cat_dat(I_row, QU_row):
     # and then drop the pol designation
     if not np.all(Q_freqs == U_freqs):
         print( "Q and U frequencies not the same!")
-        print(f" Source_name = {QU['Source_name']}")
-        print(f" Source_id   = {QU['Source_id']}")
-        print(f" Gaus_id     = {QU['Gaus_id']}")
+        print(f" Source_name = {QU_row['Source_name']}")
+        print(f" Source_id   = {QU_row['Source_id']}")
+        print(f" Gaus_id     = {QU_row['Gaus_id']}")
         return None
 
     freqs = Q_freqs
@@ -163,143 +165,170 @@ def get_cat_dat(I_row, QU_row):
     dlist = [ I, dI, Q, dQ, U, dU, V, dV ]
     darr = np.vstack( dlist ).T
 
-    return [freqs, darr]
+    # correct nans
+    if np.any(np.isnan(darr)):
+        xx = np.where( np.isnan(darr) )
+        darr[xx] = 0.0
+    
+    flag = 0
+    if ( np.all( darr[:,2]==0 ) or np.all( darr[:,3] == 0 ) ):
+        flag += 1
+    if ( np.all( darr[:,4]==0 ) or np.all( darr[:,5] == 0 ) ):
+        flag += 1
+
+    return [freqs, darr, flag]
 
 
 
-def polarr_to_txt(outfile, freqs, Qarr, Uarr, dQ, dU):
+def get_yrange(dat, frac=0.95, pfac=1.2):
     """
-    write text file appropriate for rmsynth1d
+    Try to make ylim sensible
     """
-    with open(outfile, 'w') as fout:
-        for ii, freq in enumerate(freqs):
-            ostr = f"{freq:12.1f} " +\
-                   f"{Qarr[ii]:10.6f} {Uarr[ii]:10.6f} " +\
-                   f"{dQ:10.6f} {dU:10.6f} \n"
+    sdat = np.sort(dat)
+    N = len(sdat)
 
-            fout.write(ostr)
+    slo = sdat[int(N * (1-frac))]
+    shi = sdat[int(N * frac)]
+
+    ylo = slo - pfac * (shi - slo)
+    yhi = shi + pfac * (shi - slo)
+
+    return (ylo, yhi)
+
+
+def stokes_plot(b_darr, b_freqs, im_darr, im_freqs, outfile=None, title=None):
+    """
+    Compare IQU 
+    """
+    b_I, b_Q, b_U = b_darr[:, [0,2,4]].T * 1e3
+    im_I, im_Q, im_U = im_darr[:, [0,2,4]].T * 1e3
+
+    b_freqs_MHz = b_freqs / 1e6
+    im_freqs_MHz = im_freqs / 1e6
+
+    if outfile is not None:
+        plt.ioff()
+
+    fig = plt.figure(figsize=(8, 8))
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    axI = fig.add_subplot(311)
+    axQ = fig.add_subplot(312, sharex=axI)
+    axU = fig.add_subplot(313, sharex=axI)
+
+    # Plot image value in black, beam in colors
+    im_kwargs = {'color' : 'k', 'ls' : '', 'marker' : '.'}
+    axI.plot(im_freqs_MHz, im_I, **im_kwargs)
+    axI.plot(b_freqs_MHz, b_I, c=colors[0], lw=2)
+
+    axQ.plot(im_freqs_MHz, im_Q, **im_kwargs)
+    axQ.plot(b_freqs_MHz, b_Q, c=colors[1], lw=2)
+    
+    axU.plot(im_freqs_MHz, im_U, **im_kwargs)
+    axU.plot(b_freqs_MHz, b_U, c=colors[2], lw=2)
+
+    frac = 0.95
+    pfac = 1.2
+    I_ylim = get_yrange(b_I, frac=frac, pfac=pfac)
+    axI.set_ylim(I_ylim)
+
+    Q_ylim = get_yrange(b_Q, frac=frac, pfac=pfac)
+    axQ.set_ylim(Q_ylim)
+
+    U_ylim = get_yrange(b_U, frac=frac, pfac=pfac)
+    axU.set_ylim(U_ylim)
+
+    axI.set_ylabel("$S_I \\, \\rm{ (mJy)}$", fontsize=14)
+    axQ.set_ylabel("$S_Q \\, \\rm{ (mJy)}$", fontsize=14)
+    axU.set_ylabel("$S_U \\, \\rm{ (mJy)}$", fontsize=14)
+
+    tp_kwargs = {'which' : 'major', 'direction': 'in', 'labelbottom' : False,
+                 'top': True, 'bottom': True, 'left' : True, 'right' : True,
+                 'length' : 5}
+
+    tp_kwargs_bot = tp_kwargs.copy()
+    tp_kwargs_bot['labelbottom'] = True
+
+    axI.tick_params(**tp_kwargs)
+    axQ.tick_params(**tp_kwargs)
+    axU.tick_params(**tp_kwargs_bot)
+
+    g_kwargs = {'alpha' : 0.3 }
+    axI.grid(**g_kwargs)
+    axQ.grid(**g_kwargs)
+    axU.grid(**g_kwargs)
+
+    plt.subplots_adjust(hspace=0.0)
+
+    axU.set_xlabel("Frequency (MHz)", fontsize=14)
+
+    if title is not None:
+        axI.set_title(title, fontsize=14)
+
+    if outfile is not None:
+        plt.savefig(outfile, dpi=150, bbox_inches='tight')
+        plt.close()
+        plt.ion()
+
+    else:
+        plt.show()
+
+    return
+
+
+def many_stokes_plots(npy_list, beam_freqs, I_tab, QU_tab, 
+                      outbase, outdir='.', beam_chan_avg=1, 
+                      beam_chan_mask=None):
+    """
+    Make many Stokes comparison plots
+
+    Get the numpy data files for beam data from list of npy files
+
+    Image data is from the catalogs stored in tables I_tab and QU_tab
+
+    Frequencies are given in arrays beam_freqs and im_freqs
+
+    Outbase is the base name of the output plots 
+    """
+    # Get beam numbers
+    bnums = []
+    bfiles = []
+    for npy_file in npy_list:
+        bname = npy_file.split('/')[-1]
+        p = re.search("beam([0-9]+)", bname)
+        if p is not None:
+            bnums.append( int(p.group(1)) )
+            bfiles.append( npy_file )
+    
+    # loop over beams, get data, make plot
+    for ii, bnum in enumerate(bnums):
+        print(f"beam{bnum:05d}")
+        b_darr = get_bdat( bfiles[ii] )
+        b_freqs = beam_freqs[:]
+        if beam_chan_mask is not None:
+            xx = np.where(beam_chan_mask)[0]
+            b_darr = b_darr[xx, :]
+            b_freqs = b_freqs[xx]
+
+        if beam_chan_avg > 1:
+            b_freqs, b_darr = avg_chan_darr(b_freqs, b_darr)
+
+        # Get image data
+        im_freqs, im_darr, _ = get_cat_dat(I_tab[bnum], QU_tab[bnum]) 
+
+        # Set output and title
+        title = f"beam{bnum:05d}"
+        outfile = f"{outdir}/{outbase}_beam{bnum:05d}.png"
+
+        stokes_plot(b_darr, b_freqs, im_darr, im_freqs, 
+                    outfile=outfile, title=title)
 
     return
 
 
 
-def darr_to_txt(outfile, darr, freqs):
-    """
-    Write spectra to text file format that 
-    can be passed to RMSynth1D
+#################################################
 
-    'RMsynth1D expects the input to be the 
-     form of an ASCII text file, with 7 
-     columns: frequency (in Hz), Stokes I, 
-     Stokes Q, Stokes U, error in I, error in Q, 
-     error in U. Each row is a single channel. 
-     No header is expected.'
-    
-    Can also provide 5 columns and skip I
-
-    Can also mask with NaNs
-    """
-    with open(outfile, 'w') as fout:
-        for ii, freq in enumerate(freqs):
-            xx = [0, 2, 4, 1, 3, 5]
-            I, Q, U, dI, dQ, dU = darr[ii, xx]
-            
-            ostr = f"{freq:12.1f} " +\
-                   f"{I:10.6f} {Q:10.6f} {U:10.6f} " +\
-                   f"{dI:10.6f} {dQ:10.6f} {dU:10.6f} \n"
-
-            fout.write(ostr)
-
-    return
-
-
-def run_rmsynth1d(infile, phimax=None):
-    """
-    Run rmsynth1d on the input text file infile 
-    (assumed to be in proper format).  Optionally 
-    include a phimax, otherwise the default will 
-    be used (which depends on particular frequency 
-    channel arrangement)
-    """
-    phi_str = ""
-    if phimax is not None:
-        phi_str = f"-l {phimax:.2f}"
-    
-    cmd = f"rmsynth1d -i -S {phi_str} {infile}"
-    #cmd = f"rmsynth1d -S {phi_str} {infile}"
-    print(cmd)
-    
-    try:
-        ret = sub.run(cmd, shell=True, check=True)
-    except sub.CalledProcessError:
-        print(f"cmd failed: {cmd}")
-    except:
-        print("Something else failed somehow")
-
-    return ret.returncode 
-
-
-def run_rmclean1d(infile, niter, threshold):
-    """
-    Run rmclean1d on the data set given 
-    by the input text file.  Assumes that 
-    rmsynth1d has already been run.  
-
-    niter = number of clean interations
-
-    threshold = cleaning threshold in Jy (if positive)
-                or in sigma (if negative) 
-    """
-    cmd = f"rmclean1d -S -n {niter} -c {threshold} {infile}"
-    print(cmd)
-    
-    try:
-        ret = sub.run(cmd, shell=True, check=True)
-    except sub.CalledProcessError:
-        print(f"cmd failed: {cmd}")
-    except:
-        print("Something else failed somehow")
-
-    return ret.returncode 
-
-
-def rm_clean_many(npy_files, freq_file, mask_file=None, outdir='.', 
-                  niter=200, threshold=-2, phimax=None):
-    """
-    Given a list of npy data files, run rm clean on 
-    all and output to individual directories
-    """
-    for npy_file in npy_files:
-        fname = npy_file.split('/')[-1]
-        basenm = fname.split('.npy')[0]
-        
-        # directory where clean data will go
-        bdir = f"{outdir}/{basenm}"
-        if not os.path.exists(bdir):
-            os.mkdir(bdir)
-        else:
-            print(f"{bdir} already exists!  skipping")
-            continue
-
-        # read in npy data and write to text 
-        # file for rm synthesis and clean
-        freqs = np.load(freq_file)
-        darr = get_bdat(npy_file)   
-        if mask_file is not None:
-            mask = np.load(mask_file)
-            xx = np.where( mask )[0]
-        else:
-            xx = np.arange(len(freqs))
-        dat_file = f"{bdir}/{basenm}.txt"
-        darr_to_txt(dat_file, darr[xx], freqs[xx])
-
-        # run rm synthesis
-        ret1 = run_rmsynth1d(dat_file, phimax=phimax)
-        
-        # run rm clean
-        ret2 = run_rmclean1d(dat_file, niter, threshold)
-    
-    return
 
 
 def read_FDF(datfile):
@@ -433,20 +462,33 @@ def json_to_cat(bnum, json_file):
     read in json file results for clean, and convert 
     to a string to be print in catalog
     """
-    with open(json_file, "r") as fin:
-        dd = json.load(fin)
+    # Need to check if json file exists. For image 
+    # RM measurement, some may not exist, so we'll just 
+    # put nans
+    if os.path.exists(json_file): 
+        with open(json_file, "r") as fin:
+            dd = json.load(fin)
 
-    rm = dd['phiPeakPIfit_rm2']
-    rm_err = dd['dPhiPeakPIfit_rm2']
+        rm = dd['phiPeakPIfit_rm2']
+        rm_err = dd['dPhiPeakPIfit_rm2']
 
-    # Convert to mJy
-    PI = dd['ampPeakPIfit'] * 1e3
-    PI_err = dd['dAmpPeakPIfit'] * 1e3
+        # Convert to mJy
+        PI = dd['ampPeakPIfit'] * 1e3
+        PI_err = dd['dAmpPeakPIfit'] * 1e3
 
-    PI_snr = dd['snrPIfit']
+        PI_snr = dd['snrPIfit']
 
-    PA0 = dd['polAngle0Fit_deg']
-    PA0_err = dd['dPolAngle0Fit_deg']
+        PA0 = dd['polAngle0Fit_deg']
+        PA0_err = dd['dPolAngle0Fit_deg']
+    else:
+        rm = np.nan
+        rm_err = np.nan
+        PI = np.nan
+        PI_err = np.nan
+        PI_snr = np.nan
+        PI_snr = np.nan
+        PA0 = np.nan
+        PA0_err = np.nan
 
     ostr = f"{bnum:03d}   {rm:10.2f}  {rm_err:10.2f}  " +\
            f"{PI:8.3f}  {PI_err:8.3f}  {PI_snr:7.1f}  "+\
@@ -460,20 +502,33 @@ def json_to_cat_coord(bnum, json_file, ra, dec):
     read in json file results for clean, and convert 
     to a string to be print in catalog
     """
-    with open(json_file, "r") as fin:
-        dd = json.load(fin)
+    # Need to check if json file exists. For image 
+    # RM measurement, some may not exist, so we'll just 
+    # put nans
+    if os.path.exists(json_file): 
+        with open(json_file, "r") as fin:
+            dd = json.load(fin)
 
-    rm = dd['phiPeakPIfit_rm2']
-    rm_err = dd['dPhiPeakPIfit_rm2']
+        rm = dd['phiPeakPIfit_rm2']
+        rm_err = dd['dPhiPeakPIfit_rm2']
 
-    # Convert to mJy
-    PI = dd['ampPeakPIfit'] * 1e3
-    PI_err = dd['dAmpPeakPIfit'] * 1e3
+        # Convert to mJy
+        PI = dd['ampPeakPIfit'] * 1e3
+        PI_err = dd['dAmpPeakPIfit'] * 1e3
 
-    PI_snr = dd['snrPIfit']
+        PI_snr = dd['snrPIfit']
 
-    PA0 = dd['polAngle0Fit_deg']
-    PA0_err = dd['dPolAngle0Fit_deg']
+        PA0 = dd['polAngle0Fit_deg']
+        PA0_err = dd['dPolAngle0Fit_deg']
+    else:
+        rm = np.nan
+        rm_err = np.nan
+        PI = np.nan
+        PI_err = np.nan
+        PI_snr = np.nan
+        PI_snr = np.nan
+        PA0 = np.nan
+        PA0_err = np.nan
 
     ostr = f"{bnum:03d}   {rm:10.2f}  {rm_err:10.2f}  " +\
            f"{PI:8.3f}  {PI_err:8.3f}  {PI_snr:7.1f}  "+\
@@ -730,75 +785,86 @@ def plot_frac_pol(infile, rm_txt, cc0, vmin=None, vmax=None,
 
 def parse_input():
     """
-    Parse arguments to MS beamform
+    Parse arguments to Image cat RM synthesis
     """
-    prog_desc = "Make time and spectrum plots for IQUV data in beams"
+    prog_desc = "Run RM synthsis on QU spectra from catalog"
     parser = ArgumentParser(description=prog_desc)
 
     parser.add_argument('--outdir',
                         help='Output directory (def: cwd)',
                         default='.', required=False)
+    parser.add_argument('--outbase',
+                        help='Basename for output plots',
+                        default='compare', required=False)
+    parser.add_argument('--Icat',
+                        help='Stokes I source catalog',
+                        required=True)
+    parser.add_argument('--QUcat',
+                        help='Stokes QU source catalog',
+                        required=True)
     parser.add_argument('--freqfile',
                         help='npy array of channel frequencies',
                         required=True)
     parser.add_argument('--maskfile',
-                        help='npy array of channel mask',
+                        help='npy array of channel mask for beam data',
                         required=False)
-    parser.add_argument('--niter', type=int,
-                        help='Number of CLEAN iterations (def=200)',
-                        default=200, required=False)
-    parser.add_argument('--threshold', type=float,
-                        help='CLEAN threshold in (neg) sigma (def=-2)',
-                        default=200, required=False)
-    parser.add_argument('--phimax', type=float,
-                        help='Maximum Faraday depth (rad/^2, def: -1, no max)',
-                        default=-1, required=False)
-    parser.add_argument('--cat',
-                        help='Base name of catalog file (def: none, dont make catalog)',
-                        required=False)
+    parser.add_argument('--beam_chan_avg', type=int, 
+                        help='number of channels to average in beam data',
+                        default=1, required=False)
     parser.add_argument('dat_files', nargs='+',
-                        help='Beam data file(s) for RM CLEAN-ing')
+                        help='Beam data npy file(s) to plot')
 
     args = parser.parse_args()
 
     return args
 
 
-    
 if __name__ == "__main__":
     # Parse command line input
     args = parse_input()
 
-    catbase = args.cat
-
+    outbase = args.outbase
+    
+    # Get freq file
     freqfile = args.freqfile
     if not os.path.exists(freqfile):
-        print(f"Freq file not found: {freqfile}")
+        print(f"freqfile not found: {freqfile}")
         sys.exit(0)
+    beam_freqs = np.load(freqfile)
 
+    # Get mask file (if nec)
     maskfile = args.maskfile
     if maskfile is not None:
         if not os.path.exists(maskfile):
             print(f"Mask file not found: {maskfile}")
             sys.exit(0)
+        mask = np.load(maskfile)
+    else:
+        mask = None
 
+    # get output directory
     outdir = args.outdir
     if not os.path.exists(outdir):
         print(f"Outdir not found: {outdir}")
         sys.exit(0)
 
-    phimax = args.phimax
-    if phimax <= 0:
-        phimax = None
-        
-    niter = args.niter
-    threshold = args.threshold
-    dat_files = args.dat_files
-    
-    rm_clean_many(dat_files, freqfile, mask_file=maskfile, 
-                  outdir=outdir, niter=niter, threshold=threshold, 
-                  phimax=phimax)
+    # Open cats and make sure they are the same size
+    I_tab  = Table.read(args.Icat)
+    QU_tab = Table.read(args.QUcat)
 
-    if catbase is not None: 
-        catfile = f"{outdir}/{catbase}.txt"
-        make_catalog(outdir, catfile)
+    if (len(I_tab) != len(QU_tab)):
+        print("I and QU catalogs have different number of rows!")
+        print(f"len(Icat)  = {len(I_tab)}")
+        print(f"len(QUcat) = {len(QU_tab)}")
+        sys.exit(0)
+
+    # Get beam chan avg
+    chan_avg = args.beam_chan_avg
+
+    # get numpy data
+    npy_list = args.dat_files
+
+    many_stokes_plots(npy_list, beam_freqs, I_tab, QU_tab, 
+                      outbase, outdir=outdir, 
+                      beam_chan_avg=chan_avg, 
+                      beam_chan_mask=mask)
