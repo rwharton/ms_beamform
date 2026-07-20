@@ -749,7 +749,7 @@ def parse_input():
                         default=200, required=False)
     parser.add_argument('--threshold', type=float,
                         help='CLEAN threshold in (neg) sigma (def=-2)',
-                        default=200, required=False)
+                        default=-2, required=False)
     parser.add_argument('--phimax', type=float,
                         help='Maximum Faraday depth (rad/^2, def: -1, no max)',
                         default=-1, required=False)

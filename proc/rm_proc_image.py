@@ -834,7 +834,7 @@ def parse_input():
                         required=False)
     parser.add_argument('--niter', type=int,
                         help='Number of CLEAN iterations (def=200)',
-                        default=200, required=False)
+                        default=-2, required=False)
     parser.add_argument('--threshold', type=float,
                         help='CLEAN threshold in (neg) sigma (def=-2)',
                         default=200, required=False)
