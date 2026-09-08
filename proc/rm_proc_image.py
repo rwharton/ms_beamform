@@ -487,7 +487,7 @@ def make_rm_plots(bnums, bdir, xlim=(-1e4, 1e4)):
     return
 
 
-def json_to_cat(bnum, json_file):
+def json_to_cat(bnum, json_file, use_obs=False):
     """
     read in json file results for clean, and convert 
     to a string to be print in catalog
@@ -499,17 +499,23 @@ def json_to_cat(bnum, json_file):
         with open(json_file, "r") as fin:
             dd = json.load(fin)
 
-        rm = dd['phiPeakPIfit_rm2']
-        rm_err = dd['dPhiPeakPIfit_rm2']
-
-        # Convert to mJy
-        PI = dd['ampPeakPIfit'] * 1e3
-        PI_err = dd['dAmpPeakPIfit'] * 1e3
-
-        PI_snr = dd['snrPIfit']
-
-        PA0 = dd['polAngle0Fit_deg']
-        PA0_err = dd['dPolAngle0Fit_deg']
+            # Get Values
+            rm = dd['phiPeakPIfit_rm2']
+            PI = dd['ampPeakPIfit'] * 1e3  # mJy
+            PA0 = dd['polAngle0Fit_deg']
+        
+            # Get errs
+            if use_obs:
+                rm_err = dd['dPhiObserved_rm2']
+                PI_err = dd['dAmpObserved'] * 1e3
+                PA0_err = dd['dPolAngleFit0Observed_deg']
+            else:
+                rm_err = dd['dPhiPeakPIfit_rm2']
+                PI_err = dd['dAmpPeakPIfit'] * 1e3
+                PA0_err = dd['dPolAngle0Fit_deg']
+        
+            #PI_snr = dd['snrPIfit']
+            PI_snr = PI / PI_err
     else:
         rm = np.nan
         rm_err = np.nan
@@ -567,7 +573,7 @@ def json_to_cat_coord(bnum, json_file, ra, dec):
     return ostr
     
 
-def make_catalog(bdir, outfile):
+def make_catalog(bdir, outfile, use_obs=False):
     """
     Parse all the RMclean json files for every beam
     and write values of interest to the catalog
@@ -589,7 +595,7 @@ def make_catalog(bdir, outfile):
     olines = []
     for ii, bdir in enumerate(blist):
         jfile = f"{bdir}/{bnames[ii]}_RMclean.json"
-        ostr = json_to_cat(bnums[ii], jfile)
+        ostr = json_to_cat(bnums[ii], jfile, use_obs=use_obs)
         olines.append(ostr)
 
     # Write catalog 
@@ -844,6 +850,8 @@ def parse_input():
     parser.add_argument('--outcat',
                         help='Base name of catalog file (def: none, dont make catalog)',
                         required=False)
+    parser.add_argument('--use_obs_errs', help='Use obs errors from RM-tools in catalog (default = False)',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -890,4 +898,4 @@ if __name__ == "__main__":
 
     if catbase is not None: 
         catfile = f"{outdir}/{catbase}.txt"
-        make_catalog(outdir, catfile)
+        make_catalog(outdir, catfile, use_obs=args.use_obs_errs)
