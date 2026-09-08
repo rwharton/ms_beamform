@@ -12,6 +12,8 @@ import sys
 from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 import json
 from argparse import ArgumentParser
+import multiprocessing
+from contextlib import closing
 
 def blist_to_ccs(blist_file):
     """
@@ -261,6 +263,59 @@ def run_rmclean1d(infile, niter, threshold):
         print("Something else failed somehow")
 
     return ret.returncode 
+
+
+def one_rm_clean(npy_file, freq_file, mask_file=None, outdir='.', 
+                 niter=200, threshold=-2, phimax=None):
+    """
+    Run full RM processing on one npy beam file
+    """
+    fname = npy_file.split('/')[-1]
+    basenm = fname.split('.npy')[0]
+    
+    # directory where clean data will go
+    bdir = f"{outdir}/{basenm}"
+    if not os.path.exists(bdir):
+        os.mkdir(bdir)
+    else:
+        print(f"{bdir} already exists!  skipping")
+        return
+
+    # read in npy data and write to text 
+    # file for rm synthesis and clean
+    freqs = np.load(freq_file)
+    darr = get_bdat(npy_file)   
+    if mask_file is not None:
+        mask = np.load(mask_file)
+        xx = np.where( mask )[0]
+    else:
+        xx = np.arange(len(freqs))
+    dat_file = f"{bdir}/{basenm}.txt"
+    darr_to_txt(dat_file, darr[xx], freqs[xx])
+
+    # run rm synthesis
+    ret1 = run_rmsynth1d(dat_file, phimax=phimax)
+    
+    # run rm clean
+    ret2 = run_rmclean1d(dat_file, niter, threshold)
+
+    return
+
+
+def multi_rm_clean(nproc, npy_files, freq_file, mask_file=None, 
+                   outdir='.', niter=200, threshold=-2, phimax=None):
+    """
+    Given a list of npy data files, run rm clean on 
+    all with multiprocessing using nproc cores, 
+     and output to individual directories
+    """
+    with closing(multiprocessing.Pool(processes=nproc)) as pool:
+        results = [pool.apply_async(one_rm_clean,
+                   args=(npy_file, freq_file, mask_file, outdir, 
+                         niter, threshold, phimax) )\
+                         for npy_file in npy_files]
+        all_beams = [p.get() for p in results]
+    return
 
 
 def rm_clean_many(npy_files, freq_file, mask_file=None, outdir='.', 
@@ -764,6 +819,9 @@ def parse_input():
                         required=False)
     parser.add_argument('--use_obs_errs', help='Use obs errors from RM-tools in catalog (default = False)', 
                         action='store_true')
+    parser.add_argument('--nproc', type=int,
+                        help='Number of parallel processes to run (def=1)',
+                        default=1, required=False)
     parser.add_argument('dat_files', nargs='+',
                         help='Beam data file(s) for RM CLEAN-ing')
 
@@ -803,9 +861,10 @@ if __name__ == "__main__":
     threshold = args.threshold
     dat_files = args.dat_files
     
-    rm_clean_many(dat_files, freqfile, mask_file=maskfile, 
-                  outdir=outdir, niter=niter, threshold=threshold, 
-                  phimax=phimax)
+    nproc = args.nproc
+    multi_rm_clean(nproc, dat_files, freqfile, mask_file=maskfile, 
+                   outdir=outdir, niter=niter, threshold=threshold, 
+                   phimax=phimax)
 
     if catbase is not None: 
         catfile = f"{outdir}/{catbase}.txt"
