@@ -285,6 +285,7 @@ def one_rm_clean(npy_file, freq_file, mask_file=None, outdir='.',
     # file for rm synthesis and clean
     freqs = np.load(freq_file)
     darr = get_bdat(npy_file)   
+    print(darr.shape)
     if mask_file is not None:
         mask = np.load(mask_file)
         xx = np.where( mask )[0]
